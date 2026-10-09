@@ -1,0 +1,708 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fake Link Detector</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f1f5f9;
+    color: #172033;
+}
+
+header {
+    background: #101c36;
+    color: white;
+    padding: 24px 16px;
+    text-align: center;
+}
+
+header h1 {
+    margin: 0 0 10px;
+}
+
+header p {
+    margin: 0;
+    color: #cbd5e1;
+}
+
+.container {
+    width: 92%;
+    max-width: 900px;
+    margin: 28px auto;
+}
+
+.card {
+    background: white;
+    padding: 22px;
+    margin-bottom: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px #0000000a;
+}
+
+h2 {
+    margin-top: 0;
+    font-size: 21px;
+}
+
+.tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+button {
+    border: none;
+    cursor: pointer;
+    padding: 12px 17px;
+    border-radius: 7px;
+    font-size: 15px;
+}
+
+.tab {
+    background: #e2e8f0;
+    color: #172033;
+}
+
+.tab.active, .primary {
+    background: #2457d6;
+    color: white;
+}
+
+input, textarea {
+    width: 100%;
+    padding: 13px;
+    margin: 8px 0 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    font-size: 15px;
+}
+
+textarea {
+    resize: vertical;
+    min-height: 140px;
+}
+
+.primary {
+    width: 100%;
+}
+
+.secondary {
+    background: #e2e8f0;
+    color: #172033;
+}
+
+.note {
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.hidden {
+    display: none;
+}
+
+.result {
+    border-left: 5px solid #64748b;
+}
+
+.low {
+    border-color: #16a34a;
+}
+
+.medium {
+    border-color: #d97706;
+}
+
+.high {
+    border-color: #dc2626;
+}
+
+.risk {
+    font-size: 25px;
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+.low .risk {
+    color: #15803d;
+}
+
+.medium .risk {
+    color: #b45309;
+}
+
+.high .risk {
+    color: #b91c1c;
+}
+
+.score {
+    display: inline-block;
+    padding: 7px 12px;
+    border-radius: 20px;
+    background: #e2e8f0;
+    margin-bottom: 10px;
+}
+
+.finding {
+    padding: 12px;
+    margin-top: 10px;
+    border-radius: 7px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    overflow-wrap: anywhere;
+}
+
+.finding strong {
+    display: block;
+    margin-bottom: 5px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+th, td {
+    padding: 12px 8px;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+    overflow-wrap: anywhere;
+}
+
+th {
+    background: #f8fafc;
+}
+
+footer {
+    text-align: center;
+    padding: 20px;
+    color: #64748b;
+    font-size: 13px;
+}
+
+@media (max-width: 600px) {
+    .card {
+        padding: 16px;
+    }
+
+    .tabs {
+        flex-direction: column;
+    }
+
+    table {
+        font-size: 12px;
+    }
+
+    th, td {
+        padding: 9px 5px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>🔎 Fake Link Detector</h1>
+    <p>Analyze suspicious URLs using rule-based detection</p>
+</header>
+
+<main class="container">
+
+    <section class="card">
+        <h2>Check a Link</h2>
+
+        <div class="tabs">
+            <button class="tab active" id="singleTab"
+                onclick="showMode('single')">Single URL</button>
+
+            <button class="tab" id="batchTab"
+                onclick="showMode('batch')">Multiple URLs</button>
+        </div>
+
+        <div id="singleMode">
+            <label for="urlInput">Enter website URL</label>
+            <input id="urlInput" type="text"
+                placeholder="https://example.com">
+
+            <button class="primary" onclick="checkSingle()">
+                Analyze URL
+            </button>
+        </div>
+
+        <div id="batchMode" class="hidden">
+            <label for="batchInput">Enter URLs (one per line)</label>
+            <textarea id="batchInput"
+                placeholder="https://example.com&#10;http://192.168.1.1/login"></textarea>
+
+            <p class="note">Maximum 25 URLs per scan.</p>
+
+            <button class="primary" onclick="checkBatch()">
+                Analyze All URLs
+            </button>
+        </div>
+
+        <p class="note">
+            This tool checks URL patterns only. It does not open the
+            links or guarantee that a website is safe.
+        </p>
+    </section>
+
+    <section id="singleResult" class="card hidden"></section>
+
+    <section id="batchResult" class="card hidden"></section>
+
+    <section class="card">
+        <h2>Recent Scan History</h2>
+        <div id="historyArea"></div>
+        <button class="secondary" onclick="clearHistory()">
+            Clear History
+        </button>
+    </section>
+
+</main>
+
+<footer>
+    Rule-Based Fake Link Detector | Educational Project
+</footer>
+
+<script>
+const SHORTENERS = new Set([
+    "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly",
+    "is.gd", "buff.ly", "rebrand.ly", "cutt.ly",
+    "shorturl.at", "tiny.cc", "rb.gy", "lnkd.in"
+]);
+
+const SUSPICIOUS_WORDS = [
+    "login", "log-in", "signin", "sign-in", "verify",
+    "verification", "password", "passwd", "credential",
+    "account", "secure", "update", "confirm", "banking",
+    "wallet", "payment", "billing", "invoice", "gift",
+    "prize", "free", "bonus", "urgent", "suspended",
+    "unlock", "recover", "webscr", "validate", "authenticate"
+];
+
+const BRANDS = [
+    "paypal", "google", "microsoft", "apple", "amazon",
+    "facebook", "instagram", "netflix", "whatsapp",
+    "telegram", "sbi", "hdfc", "icici", "axisbank"
+];
+
+const DANGEROUS_EXTENSIONS = [
+    ".exe", ".scr", ".bat", ".cmd", ".msi", ".dll",
+    ".com", ".ps1", ".vbs", ".js", ".jar", ".apk"
+];
+
+function normalizeURL(raw) {
+    let value = raw.trim();
+
+    if (!value) return "";
+
+    if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(value)) {
+        value = "http://" + value;
+    }
+
+    return value;
+}
+
+function isIPAddress(host) {
+    // IPv4
+    const parts = host.split(".");
+
+    if (parts.length === 4 &&
+        parts.every(part =>
+            /^\d{1,3}$/.test(part) &&
+            Number(part) >= 0 &&
+            Number(part) <= 255
+        )) {
+        return true;
+    }
+
+    // IPv6
+    return host.includes(":") &&
+        /^[0-9a-f:]+$/i.test(host);
+}
+
+function analyzeURL(raw) {
+    const original = raw.trim();
+    const normalized = normalizeURL(original);
+    const findings = [];
+    let score = 0;
+
+    function flag(points, title, explanation) {
+        score += points;
+        findings.push({ points, title, explanation });
+    }
+
+    if (!original) {
+        return {
+            original, valid: false, risk: "Invalid Input",
+            score: 0, findings: [],
+            summary: "Enter a URL to analyze."
+        };
+    }
+
+    let parsed;
+
+    try {
+        parsed = new URL(normalized);
+
+        if (!parsed.hostname || /\s/.test(parsed.hostname)) {
+            throw new Error("Invalid hostname");
+        }
+    } catch (error) {
+        return {
+            original, valid: false, risk: "Invalid URL",
+            score: 0, findings: [],
+            summary: "The URL format is invalid."
+        };
+    }
+
+    const host = parsed.hostname.toLowerCase()
+        .replace(/^\[|\]$/g, "");
+    const lower = normalized.toLowerCase();
+
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+        flag(35, "Unusual URL scheme",
+            "The link does not use HTTP or HTTPS.");
+    }
+
+    if (parsed.protocol === "http:") {
+        flag(8, "No HTTPS encryption",
+            "The connection does not use HTTPS encryption.");
+    }
+
+    if (isIPAddress(host)) {
+        flag(25, "IP address used as host",
+            "The URL uses an IP address instead of a normal domain.");
+    }
+
+    if (parsed.username || parsed.password || /@/.test(
+        normalized.split("/").slice(0, 3).join("/")
+    )) {
+        flag(25, "At-sign or embedded credentials",
+            "The URL may use an @ symbol or credentials to disguise its destination.");
+    }
+
+    if (normalized.length >= 100) {
+        flag(10, "Very long URL",
+            "Long URLs can hide misleading parameters.");
+    } else if (normalized.length >= 75) {
+        flag(5, "Long URL",
+            "Inspect the path and parameters carefully.");
+    }
+
+    if ((normalized.match(/-/g) || []).length >= 3) {
+        flag(5, "Many hyphens",
+            "Several hyphens appear in the URL.");
+    }
+
+    if (host.split(".").length >= 5) {
+        flag(8, "Many subdomain levels",
+            "The hostname contains several dot-separated parts.");
+    }
+
+    if (normalized.includes("%")) {
+        flag(5, "Percent-encoded characters",
+            "Encoded characters can make a URL harder to read.");
+    }
+
+    if (/xn--|\.xn--/i.test(host)) {
+        flag(15, "Punycode domain",
+            "The domain contains an internationalized-domain encoding.");
+    }
+
+    if (parsed.port &&
+        !["80", "443"].includes(parsed.port)) {
+        flag(10, "Unusual port number",
+            "The URL uses a non-standard port.");
+    }
+
+    if (SHORTENERS.has(host)) {
+        flag(15, "URL shortener",
+            "The shortened link hides its final destination.");
+    }
+
+    const labels = host.split(".");
+
+    for (const brand of BRANDS) {
+        if (host.includes(brand) &&
+            host !== brand + ".com") {
+
+            if (host.includes("-" + brand) ||
+                host.includes(brand + "-") ||
+                host.includes(brand + "login") ||
+                host.includes(brand + "secure")) {
+
+                flag(18, "Possible brand impersonation",
+                    "The hostname combines a brand name with extra wording.");
+                break;
+            }
+
+            if (labels.slice(0, -2).includes(brand)) {
+                flag(12, "Brand name in subdomain",
+                    "A brand name appears in a subdomain.");
+                break;
+            }
+        }
+    }
+
+    let decoded = lower;
+
+    try {
+        decoded = decodeURIComponent(lower);
+    } catch (error) {
+        // Keep the original string if encoding is malformed.
+    }
+
+    const matchedWords = SUSPICIOUS_WORDS.filter(
+        word => decoded.includes(word)
+    );
+
+    if (matchedWords.length) {
+        flag(
+            Math.min(18, 4 + 2 * matchedWords.length),
+            "Phishing-related keywords",
+            "Found: " + matchedWords.slice(0, 8).join(", ")
+        );
+    }
+
+    const path = parsed.pathname.toLowerCase();
+
+    if (DANGEROUS_EXTENSIONS.some(ext => path.endsWith(ext))) {
+        flag(25, "Potentially dangerous download",
+            "The URL ends with an executable or script-like file extension.");
+    }
+
+    if (/^(secure-|login-|verify-)/.test(host)) {
+        flag(8, "Security-themed hostname prefix",
+            "The hostname starts with security-related wording.");
+    }
+
+    score = Math.min(score, 100);
+
+    let risk, riskClass, summary;
+
+    if (score >= 50) {
+        risk = "High Risk";
+        riskClass = "high";
+        summary = "Several warning signs were detected. Avoid opening this link until independently verified.";
+    } else if (score >= 25) {
+        risk = "Medium Risk";
+        riskClass = "medium";
+        summary = "Some suspicious patterns were detected. Check the destination carefully.";
+    } else {
+        risk = "Low Risk";
+        riskClass = "low";
+        summary = "Few warning signs were detected. This does not guarantee the link is safe.";
+    }
+
+    if (!findings.length) {
+        findings.push({
+            points: 0,
+            title: "No configured warning rules triggered",
+            explanation: "This URL did not match the configured rules. It may still be unsafe."
+        });
+    }
+
+    return {
+        original, normalized, host, valid: true,
+        score, risk, riskClass, summary, findings
+    };
+}
+
+// Escape user-controlled text before placing it into HTML.
+function escapeHTML(value) {
+    return String(value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    })[char]);
+}
+
+function renderResult(result) {
+    const target = document.getElementById("singleResult");
+    target.className = "card result " +
+        (result.riskClass || "");
+
+    let html = `
+        <h2>Analysis Result</h2>
+        <div class="risk">${escapeHTML(result.risk)}</div>
+        <div class="score">Risk Score: ${result.score}/100</div>
+        <p><strong>URL:</strong> ${escapeHTML(result.original)}</p>
+        <p>${escapeHTML(result.summary)}</p>
+        <h3>Detected Patterns</h3>
+    `;
+
+    result.findings.forEach(item => {
+        html += `
+            <div class="finding">
+                <strong>${escapeHTML(item.title)}
+                (+${item.points} points)</strong>
+                ${escapeHTML(item.explanation)}
+            </div>
+        `;
+    });
+
+    target.innerHTML = html;
+    target.classList.remove("hidden");
+}
+
+function saveHistory(results) {
+    let history = getHistory();
+
+    results.forEach(result => {
+        history.unshift({
+            url: result.original,
+            risk: result.risk,
+            score: result.score,
+            time: new Date().toLocaleString()
+        });
+    });
+
+    history = history.slice(0, 10);
+
+    try {
+        localStorage.setItem("fakeLinkHistory",
+            JSON.stringify(history));
+    } catch (error) {
+        // Scanning still works if browser storage is unavailable.
+    }
+
+    renderHistory();
+}
+
+function getHistory() {
+    try {
+        const history = JSON.parse(
+            localStorage.getItem("fakeLinkHistory") || "[]"
+        );
+
+        return Array.isArray(history) ? history : [];
+    } catch (error) {
+        return [];
+    }
+}
+
+function renderHistory() {
+    const area = document.getElementById("historyArea");
+    const history = getHistory();
+
+    if (!history.length) {
+        area.innerHTML = "<p class='note'>No scans yet.</p>";
+        return;
+    }
+
+    let html = `
+        <div style="overflow-x:auto">
+        <table>
+        <thead><tr>
+            <th>URL</th><th>Risk</th>
+            <th>Score</th><th>Time</th>
+        </tr></thead><tbody>
+    `;
+
+    history.forEach(item => {
+        html += `<tr>
+            <td>${escapeHTML(item.url)}</td>
+            <td>${escapeHTML(item.risk)}</td>
+            <td>${item.score}/100</td>
+            <td>${escapeHTML(item.time)}</td>
+        </tr>`;
+    });
+
+    area.innerHTML = html + "</tbody></table></div>";
+}
+
+function checkSingle() {
+    const value = document.getElementById("urlInput").value;
+    const result = analyzeURL(value);
+
+    renderResult(result);
+
+    if (value.trim()) {
+        saveHistory([result]);
+    }
+}
+
+function checkBatch() {
+    const text = document.getElementById("batchInput").value;
+    const urls = text.split(/\r?\n/)
+        .map(url => url.trim())
+        .filter(Boolean);
+
+    const target = document.getElementById("batchResult");
+    target.className = "card";
+
+    if (!urls.length) {
+        target.innerHTML = "<p>Please enter at least one URL.</p>";
+        target.classList.remove("hidden");
+        return;
+    }
+
+    const results = urls.slice(0, 25).map(analyzeURL);
+
+    let html = `
+        <h2>Multiple URL Results</h2>
+        <p>Analyzed ${results.length} URL(s).</p>
+        <div style="overflow-x:auto">
+        <table><thead><tr>
+            <th>URL</th><th>Risk</th><th>Score</th>
+        </tr></thead><tbody>
+    `;
+
+    results.forEach(result => {
+        html += `<tr>
+            <td>${escapeHTML(result.original)}</td>
+            <td>${escapeHTML(result.risk)}</td>
+            <td>${result.score}/100</td>
+        </tr>`;
+    });
+
+    target.innerHTML = html + "</tbody></table></div>";
+    target.classList.remove("hidden");
+
+    saveHistory(results);
+}
+
+function showMode(mode) {
+    document.getElementById("singleMode").classList.toggle(
+        "hidden", mode !== "single");
+
+    document.getElementById("batchMode").classList.toggle(
+        "hidden", mode !== "batch");
+
+    document.getElementById("singleTab").classList.toggle(
+        "active", mode === "single");
+
+    document.getElementById("batchTab").classList.toggle(
+        "active", mode === "batch");
+}
+
+function clearHistory() {
+    try {
+        localStorage.removeItem("fakeLinkHistory");
+    } catch (error) {
+        // Ignore unavailable storage.
+    }
+
+    renderHistory();
+}
+
+renderHistory();
+</script>
+
+</body>
+</html>
